@@ -47,9 +47,18 @@ optionsParser =
 
 main :: IO ()
 main = do
-    withGlobalTracing do
-        let parserPrefs = defaultPrefs{ prefMultiSuffix = "..." }
-        Command {..} <- customExecParser parserPrefs optionsParser
-        case commandSubCommand of
-            Exec execArgs ->
-                runExecArgs execArgs
+    let parserPrefs = defaultPrefs{ prefMultiSuffix = "..." }
+    Command {..} <- customExecParser parserPrefs optionsParser
+    mOptOut <- parseOptOut
+
+    case mOptOut of
+        Just optOut ->
+            case commandSubCommand of
+                Exec execArgs ->
+                    runOptOut optOut $ execArgsSubprocess execArgs
+
+        Nothing ->
+            withGlobalTracing do
+                case commandSubCommand of
+                    Exec execArgs ->
+                        runExecArgs execArgs

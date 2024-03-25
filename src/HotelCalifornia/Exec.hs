@@ -1,6 +1,6 @@
 -- | This module defines the code for actually executing a command with tracing
 -- enabled.
-module HotelCalifornia.Exec where
+module HotelCalifornia.Exec (ExecArgs (..), OptOut, parseExecArgs, parseOptOut, runExecArgs, runOptOut) where
 
 import qualified Control.Exception as Exception
 import qualified Data.Char as Char
@@ -16,11 +16,16 @@ import HotelCalifornia.Tracing.TraceParent
 import qualified OpenTelemetry.Trace.Core as Otel
 import OpenTelemetry.Trace (Attribute(..), PrimitiveAttribute(..))
 import Options.Applicative hiding (command)
-import System.Environment (getEnvironment)
+import System.Environment (getEnvironment, lookupEnv)
 import System.Exit
 import qualified System.Posix.Escape.Unicode as Escape
 import System.Process.Typed
 import HotelCalifornia.Which (which)
+
+data OptOut = OptOut
+
+parseOptOut :: IO (Maybe OptOut)
+parseOptOut = (OptOut <$) <$> lookupEnv "HOTEL_CALIFORNIA_OPT_OUT"
 
 data Subprocess = Proc (NonEmpty String) | Shell String
 
@@ -120,6 +125,13 @@ makeInitialAttributes subprocess extraAttributes = do
           Shell _command -> pure mempty
 
     pure $ processAttributes <> extraAttributes
+
+runOptOut :: OptOut -> Subprocess -> IO ()
+runOptOut OptOut subproc = do
+    let processConfig = commandToProcessConfig subproc
+    userEnv <- getEnvironment
+    exitCode <- runProcess $ setEnv userEnv processConfig
+    exitWith exitCode
 
 runExecArgs :: ExecArgs -> IO ()
 runExecArgs ExecArgs {..} = do
